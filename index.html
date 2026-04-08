@@ -580,7 +580,7 @@ body {
         <div class="card-text">You find out the server went down when a client <span class="glow glow-cyan">tweets about it</span>.</div>
         <div class="card-comment">// alerts were set up, <span class="glow glow-red">nobody got them</span></div>
       </div>
-      <div class="card">
+      <div class class="card">
         <div class="card-label">race condition</div>
         <div class="card-text">Two parts of the code <span class="glow glow-pink">both try to update the same thing</span> at the same time and fight each other. Like two people trying to go through a door simultaneously. In prod. At 3am.</div>
         <div class="card-comment">// turns out order matters. nobody told the threads.</div>
@@ -792,12 +792,23 @@ function drawWater() {
   requestAnimationFrame(drawWater);
 }
 
-// ─── SCROLL REVEAL ───
+// ─── SCROLL REVEAL + AUTO SCROLL ───
 const depthFill = document.getElementById('depth-fill');
+
+// Auto-scroll config
 let autoScrollFrame = null;
+let autoScrollEnabled = true;
 const AUTO_SCROLL_SPEED = 0.45;
 
+function stopAutoScroll() {
+  autoScrollEnabled = false;
+  if (autoScrollFrame !== null) cancelAnimationFrame(autoScrollFrame);
+  autoScrollFrame = null;
+}
+
 function autoScrollLoop() {
+  if (!autoScrollEnabled) return;
+
   const docH = document.body.scrollHeight - window.innerHeight;
   if (docH <= 0) {
     autoScrollFrame = requestAnimationFrame(autoScrollLoop);
@@ -805,19 +816,23 @@ function autoScrollLoop() {
   }
 
   const scrollY = window.scrollY;
+
+  // Stop at bottom (fixes the "loop back to top forever" behavior)
   if (scrollY >= docH - 1) {
-    window.scrollTo(0, 0);
-  } else {
-    window.scrollBy(0, AUTO_SCROLL_SPEED);
+    stopAutoScroll();
+    return;
   }
 
+  window.scrollBy(0, AUTO_SCROLL_SPEED);
   autoScrollFrame = requestAnimationFrame(autoScrollLoop);
 }
 
 function onScroll() {
   const scrollY = window.scrollY;
   const docH = document.body.scrollHeight - window.innerHeight;
-  const progress = Math.min(scrollY / docH, 1);
+
+  // Avoid NaN/Infinity if docH is 0
+  const progress = docH > 0 ? Math.min(scrollY / docH, 1) : 0;
   depthFill.style.height = (progress * 100) + '%';
 
   document.querySelectorAll('.layer-inner').forEach(el => {
@@ -835,6 +850,25 @@ function onScroll() {
     }
   }
 }
+
+// Stop auto-scroll on real user intent (so it doesn't "fight" scrolling)
+function userInterruptAutoScroll() {
+  stopAutoScroll();
+}
+
+window.addEventListener('wheel', userInterruptAutoScroll, { passive: true });
+window.addEventListener('touchstart', userInterruptAutoScroll, { passive: true });
+window.addEventListener('mousedown', userInterruptAutoScroll, { passive: true });
+window.addEventListener('keydown', (e) => {
+  // stop on any likely navigation keys (and any key press if you prefer)
+  const keys = ['ArrowDown','ArrowUp','PageDown','PageUp','Home','End',' '];
+  if (keys.includes(e.key)) userInterruptAutoScroll();
+});
+
+// Pause auto-scroll when tab is not visible
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopAutoScroll();
+});
 
 // ─── CLICK RIPPLE ───
 window.addEventListener('click', e => {
