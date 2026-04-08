@@ -580,7 +580,7 @@ body {
         <div class="card-text">You find out the server went down when a client <span class="glow glow-cyan">tweets about it</span>.</div>
         <div class="card-comment">// alerts were set up, <span class="glow glow-red">nobody got them</span></div>
       </div>
-      <div class class="card">
+      <div class="card">
         <div class="card-label">race condition</div>
         <div class="card-text">Two parts of the code <span class="glow glow-pink">both try to update the same thing</span> at the same time and fight each other. Like two people trying to go through a door simultaneously. In prod. At 3am.</div>
         <div class="card-comment">// turns out order matters. nobody told the threads.</div>
@@ -751,7 +751,6 @@ function drawWater() {
   const docH = document.body.scrollHeight - window.innerHeight;
   const progress = docH > 0 ? scrollY / docH : 0;
 
-  // water rises as you scroll down
   waterlineY = window.innerHeight * (0.08 + progress * 1.6);
   waterOffset += 0.8;
 
@@ -775,7 +774,6 @@ function drawWater() {
     wCtx.fillStyle = grad;
     wCtx.fill();
 
-    // waterline shimmer
     wCtx.beginPath();
     wCtx.moveTo(0, waterlineY);
     for (let x = 0; x <= waterCanvas.width; x += 4) {
@@ -792,46 +790,12 @@ function drawWater() {
   requestAnimationFrame(drawWater);
 }
 
-// ─── SCROLL REVEAL + AUTO SCROLL ───
+// ─── SCROLL REVEAL ───
 const depthFill = document.getElementById('depth-fill');
-
-// Auto-scroll config
-let autoScrollFrame = null;
-let autoScrollEnabled = true;
-const AUTO_SCROLL_SPEED = 0.45;
-
-function stopAutoScroll() {
-  autoScrollEnabled = false;
-  if (autoScrollFrame !== null) cancelAnimationFrame(autoScrollFrame);
-  autoScrollFrame = null;
-}
-
-function autoScrollLoop() {
-  if (!autoScrollEnabled) return;
-
-  const docH = document.body.scrollHeight - window.innerHeight;
-  if (docH <= 0) {
-    autoScrollFrame = requestAnimationFrame(autoScrollLoop);
-    return;
-  }
-
-  const scrollY = window.scrollY;
-
-  // Stop at bottom (fixes the "loop back to top forever" behavior)
-  if (scrollY >= docH - 1) {
-    stopAutoScroll();
-    return;
-  }
-
-  window.scrollBy(0, AUTO_SCROLL_SPEED);
-  autoScrollFrame = requestAnimationFrame(autoScrollLoop);
-}
 
 function onScroll() {
   const scrollY = window.scrollY;
   const docH = document.body.scrollHeight - window.innerHeight;
-
-  // Avoid NaN/Infinity if docH is 0
   const progress = docH > 0 ? Math.min(scrollY / docH, 1) : 0;
   depthFill.style.height = (progress * 100) + '%';
 
@@ -851,21 +815,58 @@ function onScroll() {
   }
 }
 
-// Stop auto-scroll on real user intent (so it doesn't "fight" scrolling)
-function userInterruptAutoScroll() {
+// ─── AUTO SCROLL (FIXED) ───
+// Uses an accumulated float position + scrollTo() to avoid the
+// sub-pixel rounding bug that made scrollBy(0, 0.45) silently no-op.
+const AUTO_SCROLL_SPEED = 0.6; // px per frame
+let autoScrollPos = 0;         // our own float tracker
+let autoScrollActive = true;
+let autoScrollRAF = null;
+
+function stopAutoScroll() {
+  autoScrollActive = false;
+  if (autoScrollRAF !== null) {
+    cancelAnimationFrame(autoScrollRAF);
+    autoScrollRAF = null;
+  }
+}
+
+function autoScrollStep() {
+  if (!autoScrollActive) return;
+
+  const docH = document.body.scrollHeight - window.innerHeight;
+
+  // Page not fully laid out yet — wait one more frame
+  if (docH <= 0) {
+    autoScrollRAF = requestAnimationFrame(autoScrollStep);
+    return;
+  }
+
+  // Stop cleanly at the very bottom
+  if (autoScrollPos >= docH) {
+    window.scrollTo(0, docH);
+    stopAutoScroll();
+    return;
+  }
+
+  autoScrollPos += AUTO_SCROLL_SPEED;
+  window.scrollTo(0, autoScrollPos);
+  autoScrollRAF = requestAnimationFrame(autoScrollStep);
+}
+
+// Sync our tracker if user scrolled manually before we stopped
+function syncAndStop() {
+  autoScrollPos = window.scrollY; // keep position in sync so no jump on resume
   stopAutoScroll();
 }
 
-window.addEventListener('wheel', userInterruptAutoScroll, { passive: true });
-window.addEventListener('touchstart', userInterruptAutoScroll, { passive: true });
-window.addEventListener('mousedown', userInterruptAutoScroll, { passive: true });
-window.addEventListener('keydown', (e) => {
-  // stop on any likely navigation keys (and any key press if you prefer)
+window.addEventListener('wheel',      syncAndStop, { passive: true });
+window.addEventListener('touchstart', syncAndStop, { passive: true });
+window.addEventListener('mousedown',  syncAndStop, { passive: true });
+window.addEventListener('keydown', e => {
   const keys = ['ArrowDown','ArrowUp','PageDown','PageUp','Home','End',' '];
-  if (keys.includes(e.key)) userInterruptAutoScroll();
+  if (keys.includes(e.key)) syncAndStop();
 });
-
-// Pause auto-scroll when tab is not visible
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopAutoScroll();
 });
@@ -895,7 +896,11 @@ resize();
 resizeWater();
 bgLoop();
 drawWater();
-autoScrollLoop();
+
+// Initialise tracker from current position, then begin auto-scroll
+autoScrollPos = window.scrollY;
+autoScrollRAF = requestAnimationFrame(autoScrollStep);
+
 setTimeout(onScroll, 100);
 </script>
 </body>
