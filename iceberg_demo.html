@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Software Engineering Iceberg</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root {
+  --water-color: rgba(10, 40, 80, 0.92);
+  --ice-top: #e8f4f8;
+  --ice-mid: #b8d8e8;
+  --ice-deep: #6a9bb5;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: #000;
+  color: #fff;
+  font-family: 'DM Mono', monospace;
+  cursor: none;
+  overflow-x: hidden;
+}
+
+#bg-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#water-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#cursor {
+  position: fixed;
+  width: 10px; height: 10px;
+  background: #fff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+  mix-blend-mode: difference;
+  transition: width 0.15s, height 0.15s;
+}
+#cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: left 0.1s, top 0.1s, width 0.25s, height 0.25s;
+}
+
+/* ─── HERO ─── */
+#hero {
+  position: relative;
+  z-index: 10;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+#hero h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(52px, 12vw, 140px);
+  letter-spacing: 0.1em;
+  line-height: 0.9;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: riseUp 1.2s ease 0.3s forwards;
+}
+
+#hero h1 span {
+  display: block;
+  color: #7ecfff;
+  font-size: 0.55em;
+  letter-spacing: 0.35em;
+}
+
+#hero p {
+  margin-top: 24px;
+  font-size: clamp(10px, 1.4vw, 13px);
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: riseUp 1.2s ease 0.7s forwards;
+}
+
+#scroll-hint {
+  position: absolute;
+  bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  animation: fadeIn 1s ease 1.5s forwards;
+}
+#scroll-hint span { font-size: 12px; color: rgba(255,255,255,0.55); letter-spacing: 0.25em; text-transform: uppercase; }
+#scroll-arrow {
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+  animation: scrollPulse 1.6s ease-in-out infinite;
+}
+
+/* ─── WATERLINE ─── */
+#waterline-section {
+  position: relative;
+  z-index: 10;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#waterline-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.5em;
+  color: rgba(126,207,255,0.9);
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 28px;
+  border: 0.5px solid rgba(126,207,255,0.45);
+  border-radius: 100px;
+}
+
+/* ─── ICEBERG LAYERS ─── */
+.layer {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+}
+
+.layer-inner {
+  max-width: 800px;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+
+.layer-inner.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.layer-number {
+  font-size: 12px;
+  letter-spacing: 0.35em;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.layer-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(52px, 9vw, 100px);
+  letter-spacing: 0.06em;
+  line-height: 0.95;
+  margin-bottom: 36px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border: 0.5px solid;
+  border-radius: 10px;
+  padding: 26px 24px;
+  backdrop-filter: blur(12px);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  cursor: default;
+}
+
+.card-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+
+.card-text {
+  font-size: clamp(15px, 1.9vw, 18px);
+  font-style: italic;
+  line-height: 1.75;
+  opacity: 1;
+}
+
+.card-comment {
+  margin-top: 12px;
+  font-size: clamp(12px, 1.3vw, 14px);
+  opacity: 0.55;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+}
+
+.l1 { background: linear-gradient(180deg, rgba(0,10,20,0) 0%, rgba(5,20,45,0.7) 100%); }
+.l1 .layer-title { color: #c8eaf8; }
+.l1 .card { background: rgba(168,216,240,0.08); border-color: rgba(168,216,240,0.22); color: #e8f5ff; }
+
+.l2 { background: linear-gradient(180deg, rgba(5,20,45,0.7) 0%, rgba(8,28,65,0.8) 100%); }
+.l2 .layer-title { color: #98d0f0; }
+.l2 .card { background: rgba(120,184,224,0.09); border-color: rgba(120,184,224,0.25); color: #cce5f5; }
+
+.l3 { background: linear-gradient(180deg, rgba(8,28,65,0.8) 0%, rgba(10,25,60,0.88) 100%); }
+.l3 .layer-title { color: #70a8d0; }
+.l3 .card { background: rgba(74,136,184,0.1); border-color: rgba(74,136,184,0.28); color: #aad0e8; }
+
+.l4 { background: linear-gradient(180deg, rgba(10,25,60,0.88) 0%, rgba(6,15,40,0.92) 100%); }
+.l4 .layer-title { color: #4a7898; }
+.l4 .card { background: rgba(42,88,128,0.12); border-color: rgba(42,88,128,0.3); color: #88b8d8; }
+
+.l5 { background: linear-gradient(180deg, rgba(6,15,40,0.92) 0%, rgba(3,8,20,0.96) 100%); }
+.l5 .layer-title { color: #2a5870; }
+.l5 .card { background: rgba(20,48,72,0.14); border-color: rgba(30,70,100,0.35); color: #70a8c8; }
+
+.l6 { background: rgba(2,5,12,0.97); }
+.l6 .layer-title { color: rgba(255,80,80,0.85); }
+.l6 .card { background: rgba(60,10,10,0.18); border-color: rgba(255,60,60,0.2); color: rgba(255,180,180,0.9); }
+
+/* ─── DEPTH INDICATOR ─── */
+#depth-bar {
+  position: fixed;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+#depth-track {
+  width: 1px;
+  height: 120px;
+  background: rgba(255,255,255,0.1);
+  position: relative;
+}
+#depth-fill {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, #7ecfff, #1a3880);
+  transition: height 0.3s ease;
+  height: 0%;
+}
+#depth-text {
+  font-size: 9px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.2em;
+  writing-mode: vertical-rl;
+  text-transform: uppercase;
+}
+
+/* ─── BOTTOM ─── */
+#bottom {
+  position: relative;
+  z-index: 10;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 40px;
+  background: #000;
+}
+
+#bottom h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(36px, 7vw, 80px);
+  letter-spacing: 0.15em;
+  color: rgba(255,255,255,0.75);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+}
+#bottom h2.visible { opacity: 1; transform: scale(1); }
+
+#bottom p {
+  margin-top: 20px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.25em;
+  opacity: 0;
+  transition: opacity 1.4s ease 0.4s;
+}
+#bottom p.visible { opacity: 1; }
+
+#made-by {
+  margin-top: 60px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+@keyframes riseUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+@keyframes scrollPulse {
+  0%,100% { opacity: 0.3; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.2); }
+}
+
+.ripple {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 5;
+  transform: translate(-50%,-50%) scale(0);
+  animation: rippleOut 0.7s ease-out forwards;
+  border: 1px solid rgba(126,207,255,0.5);
+}
+@keyframes rippleOut {
+  to { transform: translate(-50%,-50%) scale(1); opacity: 0; }
+}
+
+/* ─── GLOW WORDS ─── */
+.glow {
+  display: inline;
+  position: relative;
+  color: inherit;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+  cursor: default;
+}
+.glow:hover {
+  color: #fff;
+  text-shadow:
+    0 0 8px currentColor,
+    0 0 20px currentColor,
+    0 0 40px currentColor;
+}
+.glow-red:hover   { color: #ff6b6b; }
+.glow-cyan:hover  { color: #7ecfff; }
+.glow-amber:hover { color: #ffd166; }
+.glow-green:hover { color: #6bffb8; }
+.glow-pink:hover  { color: #ff9de2; }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="water-canvas"></canvas>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<div id="depth-bar">
+  <div id="depth-text">depth</div>
+  <div id="depth-track"><div id="depth-fill"></div></div>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <h1>The Software<br><span>Engineering</span><br>Iceberg</h1>
+  <p>What they teach you &nbsp;·&nbsp; What actually happens</p>
+  <div id="scroll-hint">
+    <span>scroll to descend</span>
+    <div id="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- WATERLINE -->
+<div id="waterline-section">
+  <div id="waterline-label">— waterline —</div>
+</div>
+
+<!-- LAYER 1 -->
+<section class="layer l1">
+  <div class="layer-inner" data-layer="1">
+    <div class="layer-number">layer 01 · just below the surface</div>
+    <div class="layer-title">What You Tell<br>Your Manager</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">status update</div>
+        <div class="card-text">"It works on <span class="glow glow-cyan">my machine</span>."</div>
+        <div class="card-comment">// shipping a Docker image of <span class="glow glow-amber">your laptop</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">estimate</div>
+        <div class="card-text">"Should be done by <span class="glow glow-red">Friday</span>."</div>
+        <div class="card-comment">// it is currently <span class="glow glow-red">Thursday 11:58pm</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">architecture</div>
+        <div class="card-text">"Just a <span class="glow glow-green">simple</span> CRUD app."</div>
+        <div class="card-comment">// <span class="glow glow-red">47 microservices</span>, 3 message queues</div>
+      </div>
+      <div class="card">
+        <div class="card-label">meeting contribution</div>
+        <div class="card-text">"I'll have to <span class="glow glow-amber">circle back</span> on that."</div>
+        <div class="card-comment">// has no idea what they were just asked</div>
+      </div>
+      <div class="card">
+        <div class="card-label">progress report</div>
+        <div class="card-text">"Almost there. Just <span class="glow glow-green">a few small things</span> left."</div>
+        <div class="card-comment">// the small things are <span class="glow glow-red">the entire project</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">bug report</div>
+        <div class="card-text">"That's not a bug, that's a <span class="glow glow-cyan">feature</span>."</div>
+        <div class="card-comment">// it is very much a bug</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYER 2 -->
+<section class="layer l2">
+  <div class="layer-inner" data-layer="2">
+    <div class="layer-number">layer 02 · the real workflow</div>
+    <div class="layer-title">Stack Overflow<br>Driven Dev</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">debugging method</div>
+        <div class="card-text">Google the error. Find the exact Stack Overflow post. It was written by <span class="glow glow-pink">you</span>. Three years ago.</div>
+        <div class="card-comment">// and you <span class="glow glow-red">still don't understand</span> the answer</div>
+      </div>
+      <div class="card">
+        <div class="card-label">code review</div>
+        <div class="card-text">"<span class="glow glow-green">LGTM</span>" — reviewed in <span class="glow glow-amber">4 seconds</span> flat.</div>
+        <div class="card-comment">// it was <span class="glow glow-red">400 lines</span> of untested logic</div>
+      </div>
+      <div class="card">
+        <div class="card-label">documentation</div>
+        <div class="card-text">The code <span class="glow glow-cyan">is</span> the documentation.</div>
+        <div class="card-comment">// the code is <span class="glow glow-red">not documented</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">the rubber duck</div>
+        <div class="card-text">Spent 3 hours debugging. Explained the problem to a <span class="glow glow-amber">rubber duck</span>. Fixed it immediately.</div>
+        <div class="card-comment">// the duck has saved more code than the team lead</div>
+      </div>
+      <div class="card">
+        <div class="card-label">copy-paste engineering</div>
+        <div class="card-text">Found the solution on page <span class="glow glow-cyan">3 of Google</span>. Nobody goes to page 3. You are special.</div>
+        <div class="card-comment">// it still didn't work</div>
+      </div>
+      <div class="card">
+        <div class="card-label">git history</div>
+        <div class="card-text">Commit message: <span class="glow glow-pink">"fix"</span>. Before that: <span class="glow glow-pink">"fix2"</span>. Before that: <span class="glow glow-red">"PLEASE WORK"</span>.</div>
+        <div class="card-comment">// this is a professional repository</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYER 3 -->
+<section class="layer l3">
+  <div class="layer-inner" data-layer="3">
+    <div class="layer-number">layer 03 · deeper truths</div>
+    <div class="layer-title">The Codebase<br>Dark Side</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">naming conventions</div>
+        <div class="card-text">Variables named <em><span class="glow glow-amber">data2</span></em>, <em><span class="glow glow-amber">dataFinal</span></em>, <em><span class="glow glow-amber">dataFinalActual</span></em>, <em><span class="glow glow-red">USE_THIS_ONE</span></em>.</div>
+        <div class="card-comment">// all in the <span class="glow glow-pink">same file</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">legacy code</div>
+        <div class="card-text">A function called <em><span class="glow glow-cyan">doTheThing()</span></em>. Nobody touches it. The <span class="glow glow-green">company runs on it</span>.</div>
+        <div class="card-comment">// written in <span class="glow glow-amber">2011</span>, author has left the building</div>
+      </div>
+      <div class="card">
+        <div class="card-label">testing strategy</div>
+        <div class="card-text">"We <span class="glow glow-red">test in production</span>." said with complete confidence.</div>
+        <div class="card-comment">// users are <span class="glow glow-pink">unpaid QA engineers</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">the magic number</div>
+        <div class="card-text">There's a <span class="glow glow-red">0.00743</span> somewhere deep in the code. Nobody knows where it came from. Removing it breaks everything.</div>
+        <div class="card-comment">// it's load-bearing math</div>
+      </div>
+      <div class="card">
+        <div class="card-label">the sacred if-statement</div>
+        <div class="card-text"><em>if (user === "Dave")</em> — <span class="glow glow-amber">Dave left in 2018</span>. The condition is still there. Dave must never be logged in.</div>
+        <div class="card-comment">// nobody knows what happens if Dave logs in</div>
+      </div>
+      <div class="card">
+        <div class="card-label">commented-out code</div>
+        <div class="card-text">A <span class="glow glow-pink">200-line block</span> commented out since 2015. Nobody deletes it. It's basically a historical monument.</div>
+        <div class="card-comment">// "might need it later" — someone, 9 years ago</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYER 4 -->
+<section class="layer l4">
+  <div class="layer-inner" data-layer="4">
+    <div class="layer-number">layer 04 · technical debt zone</div>
+    <div class="layer-title">Technical<br>Debt Hell</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">todo comments</div>
+        <div class="card-text">// TODO: fix this <span class="glow glow-green">(2017)</span><br>// TODO: still broken <span class="glow glow-amber">(2019)</span><br>// TODO: <span class="glow glow-red">just leave it</span> (2023)</div>
+        <div class="card-comment">// the todo has a <span class="glow glow-pink">longer history</span> than the company</div>
+      </div>
+      <div class="card">
+        <div class="card-label">the rewrite</div>
+        <div class="card-text">"Let's just <span class="glow glow-cyan">rewrite it from scratch</span>. It'll take <span class="glow glow-green">two weeks</span>."</div>
+        <div class="card-comment">// <span class="glow glow-red">18 months later</span>. still migrating.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">infrastructure</div>
+        <div class="card-text">The entire billing system runs on <span class="glow glow-red">one EC2 instance</span> nobody remembers provisioning.</div>
+        <div class="card-comment">// the instance is named <span class="glow glow-amber">"temp-test-DO-NOT-DELETE"</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">dependency management</div>
+        <div class="card-text">The app uses a library last updated in <span class="glow glow-amber">2014</span>. The author is unreachable. The library does <span class="glow glow-red">one specific thing</span> nobody knows how to replicate.</div>
+        <div class="card-comment">// it formats dates. it cannot be removed.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">the sprint</div>
+        <div class="card-text">Sprint goal: <span class="glow glow-green">"clean up tech debt."</span> Actual outcome: introduced <span class="glow glow-red">3 new bugs</span> and renamed some folders.</div>
+        <div class="card-comment">// marked as completed. shipped to prod.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">package.json</div>
+        <div class="card-text"><span class="glow glow-red">1,437 dependencies</span> to render a button and a text input.</div>
+        <div class="card-comment">// node_modules folder weighs more than the moon</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYER 5 -->
+<section class="layer l5">
+  <div class="layer-inner" data-layer="5">
+    <div class="layer-number">layer 05 · the abyss approaches</div>
+    <div class="layer-title">Production<br>Horrors</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">deployment</div>
+        <div class="card-text"><span class="glow glow-red">Friday 5pm</span> deploy. "What's the worst that could happen?"</div>
+        <div class="card-comment">// you find out at <span class="glow glow-red">2am Saturday</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">the database</div>
+        <div class="card-text">A <span class="glow glow-amber">spreadsheet</span>. In Google Drive. Shared with the whole company. With <span class="glow glow-red">edit access</span>.</div>
+        <div class="card-comment">// this is the <span class="glow glow-pink">source of truth</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">monitoring</div>
+        <div class="card-text">You find out the server went down when a client <span class="glow glow-cyan">tweets about it</span>.</div>
+        <div class="card-comment">// alerts were set up, <span class="glow glow-red">nobody got them</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">race condition</div>
+        <div class="card-text">Two parts of the code <span class="glow glow-pink">both try to update the same thing</span> at the same time and fight each other. Like two people trying to go through a door simultaneously. In prod. At 3am.</div>
+        <div class="card-comment">// turns out order matters. nobody told the threads.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">memory leak</div>
+        <div class="card-text">The app quietly eats RAM like a goldfish that never stops growing until the server <span class="glow glow-red">runs out of memory</span> and collapses. Nobody notices for <span class="glow glow-amber">6 weeks</span>.</div>
+        <div class="card-comment">// "why is the server so slow on Mondays"</div>
+      </div>
+      <div class="card">
+        <div class="card-label">the hotfix</div>
+        <div class="card-text">Deployed a <span class="glow glow-green">"quick hotfix"</span> at 11pm. The hotfix needed a hotfix. The second hotfix broke something else. It's <span class="glow glow-red">4am now</span>.</div>
+        <div class="card-comment">// this is called a hotfix chain. it has no end.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYER 6 - THE BOTTOM -->
+<section class="layer l6">
+  <div class="layer-inner" data-layer="6">
+    <div class="layer-number">layer 06 · the bottom of the iceberg</div>
+    <div class="layer-title">The Forbidden<br>Knowledge</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">the senior dev secret</div>
+        <div class="card-text">"I'm not <span class="glow glow-cyan">smarter</span> than you. I've just <span class="glow glow-amber">seen this exact bug before</span>."</div>
+        <div class="card-comment">// experience is just a graveyard of <span class="glow glow-red">failed deploys</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">the final truth</div>
+        <div class="card-text"><span class="glow glow-red">Nobody</span> fully understands the system. We're all just <span class="glow glow-pink">guessing confidently</span>.</div>
+        <div class="card-comment">// this includes the <span class="glow glow-amber">people who built it</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">career advice</div>
+        <div class="card-text">The best code is the code you <span class="glow glow-green">didn't write</span>.</div>
+        <div class="card-comment">// now go build something <span class="glow glow-cyan">amazing</span> anyway</div>
+      </div>
+      <div class="card">
+        <div class="card-label">undefined behaviour</div>
+        <div class="card-text">The program does something the language spec says <span class="glow glow-red">should not be possible</span>. It works anyway. On Tuesdays. Only in Germany. Nobody ships a fix because <span class="glow glow-pink">it might stop working</span>.</div>
+        <div class="card-comment">// "don't touch it. it knows."</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Heisenbugs</div>
+        <div class="card-text">A bug that <span class="glow glow-amber">disappears the moment you try to debug it</span>. It only exists when nobody is watching. Like a shy gremlin living inside the RAM.</div>
+        <div class="card-comment">// named after Heisenberg. yes, the physicist. yes, this is real.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">the void</div>
+        <div class="card-text">You've been staring at the same <span class="glow glow-red">semicolon</span> for 45 minutes. You are no longer debugging. You are <span class="glow glow-pink">becoming one with the error</span>.</div>
+        <div class="card-comment">// take a walk. it'll fix itself. it always does.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM -->
+<section id="bottom">
+  <h2 id="bottom-title">You have reached<br>the bottom.</h2>
+  <p id="bottom-sub">welcome to software engineering.</p>
+  <div id="made-by">NUST · FCI Society · Career Fair 2026</div>
+</section>
+
+<script>
+// ─── CURSOR ───
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx = -999, my = -999;
+window.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+  ring.style.left = mx + 'px'; ring.style.top = my + 'px';
+});
+
+// ─── BACKGROUND PARTICLES ───
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let W, H, particles = [], hue = 210, hueTarget = 210, frame = 0;
+const MAX_DIST = 110;
+
+function resize() {
+  W = bgCanvas.width = window.innerWidth;
+  H = bgCanvas.height = window.innerHeight;
+  const count = Math.min(Math.floor(W * H / 10000), 220);
+  particles = [];
+  for (let i = 0; i < count; i++) particles.push(new P());
+}
+
+class P {
+  constructor() {
+    this.x = Math.random() * (typeof W !== 'undefined' ? W : 1200);
+    this.y = Math.random() * (typeof H !== 'undefined' ? H : 800);
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.r = 1 + Math.random() * 1.8;
+    this.baseR = this.r;
+    this.ho = (Math.random() - 0.5) * 50;
+    this.a = 0.4 + Math.random() * 0.5;
+  }
+  update() {
+    const dx = mx - this.x, dy = my - this.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d < 160 && d > 0) {
+      const f = ((160 - d) / 160) ** 2 * 2.5;
+      this.vx += (dx/d)*f*0.2; this.vy += (dy/d)*f*0.2;
+      this.r = this.baseR + f * 2;
+    } else { this.r += (this.baseR - this.r) * 0.1; }
+    this.vx *= 0.978; this.vy *= 0.978;
+    this.x += this.vx; this.y += this.vy;
+    if (this.x < 0) { this.x = 0; this.vx *= -0.7; }
+    if (this.x > W) { this.x = W; this.vx *= -0.7; }
+    if (this.y < 0) { this.y = 0; this.vy *= -0.7; }
+    if (this.y > H) { this.y = H; this.vy *= -0.7; }
+  }
+  draw() {
+    const h = (hue + this.ho + 360) % 360;
+    bgCtx.beginPath();
+    bgCtx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    bgCtx.fillStyle = `hsla(${h},80%,68%,${this.a})`;
+    bgCtx.fill();
+  }
+}
+
+function bgLoop() {
+  frame++;
+  bgCtx.fillStyle = 'rgba(0,0,0,0.15)';
+  bgCtx.fillRect(0, 0, W, H);
+  hue += (hueTarget - hue) * 0.01;
+  if (frame % 480 === 0) hueTarget = (hue + 60 + Math.random()*120) % 360;
+
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i+1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if (d < MAX_DIST) {
+        const a = (1 - d/MAX_DIST) * 0.25;
+        bgCtx.beginPath();
+        bgCtx.moveTo(particles[i].x, particles[i].y);
+        bgCtx.lineTo(particles[j].x, particles[j].y);
+        bgCtx.strokeStyle = `hsla(${hue},75%,65%,${a})`;
+        bgCtx.lineWidth = 0.5;
+        bgCtx.stroke();
+      }
+    }
+    particles[i].update();
+    particles[i].draw();
+  }
+  requestAnimationFrame(bgLoop);
+}
+
+// ─── WATER EFFECT ───
+const waterCanvas = document.getElementById('water-canvas');
+const wCtx = waterCanvas.getContext('2d');
+let waterOffset = 0;
+let waterlineY = 0;
+
+function resizeWater() {
+  waterCanvas.width = window.innerWidth;
+  waterCanvas.height = window.innerHeight;
+}
+
+function drawWater() {
+  wCtx.clearRect(0, 0, waterCanvas.width, waterCanvas.height);
+  const scrollY = window.scrollY;
+  const docH = document.body.scrollHeight - window.innerHeight;
+  const progress = docH > 0 ? scrollY / docH : 0;
+
+  // water rises as you scroll down
+  waterlineY = window.innerHeight * (0.08 + progress * 1.6);
+  waterOffset += 0.8;
+
+  if (waterlineY > 20) {
+    wCtx.save();
+    wCtx.beginPath();
+    wCtx.moveTo(0, waterlineY);
+    for (let x = 0; x <= waterCanvas.width; x += 4) {
+      const y = waterlineY + Math.sin((x * 0.015) + waterOffset * 0.05) * 5
+                           + Math.sin((x * 0.025) + waterOffset * 0.08) * 3;
+      wCtx.lineTo(x, y);
+    }
+    wCtx.lineTo(waterCanvas.width, waterCanvas.height);
+    wCtx.lineTo(0, waterCanvas.height);
+    wCtx.closePath();
+
+    const grad = wCtx.createLinearGradient(0, waterlineY, 0, waterCanvas.height);
+    grad.addColorStop(0,   'rgba(5, 30, 80, 0.55)');
+    grad.addColorStop(0.3, 'rgba(4, 20, 60, 0.72)');
+    grad.addColorStop(1,   'rgba(1,  5, 15, 0.92)');
+    wCtx.fillStyle = grad;
+    wCtx.fill();
+
+    // waterline shimmer
+    wCtx.beginPath();
+    wCtx.moveTo(0, waterlineY);
+    for (let x = 0; x <= waterCanvas.width; x += 4) {
+      const y = waterlineY + Math.sin((x * 0.015) + waterOffset * 0.05) * 5
+                           + Math.sin((x * 0.025) + waterOffset * 0.08) * 3;
+      wCtx.lineTo(x, y);
+    }
+    wCtx.strokeStyle = 'rgba(126,207,255,0.35)';
+    wCtx.lineWidth = 1.5;
+    wCtx.stroke();
+    wCtx.restore();
+  }
+
+  requestAnimationFrame(drawWater);
+}
+
+// ─── SCROLL REVEAL ───
+const depthFill = document.getElementById('depth-fill');
+let autoScrollFrame = null;
+const AUTO_SCROLL_SPEED = 0.45;
+
+function autoScrollLoop() {
+  const docH = document.body.scrollHeight - window.innerHeight;
+  if (docH <= 0) {
+    autoScrollFrame = requestAnimationFrame(autoScrollLoop);
+    return;
+  }
+
+  const scrollY = window.scrollY;
+  if (scrollY >= docH - 1) {
+    window.scrollTo(0, 0);
+  } else {
+    window.scrollBy(0, AUTO_SCROLL_SPEED);
+  }
+
+  autoScrollFrame = requestAnimationFrame(autoScrollLoop);
+}
+
+function onScroll() {
+  const scrollY = window.scrollY;
+  const docH = document.body.scrollHeight - window.innerHeight;
+  const progress = Math.min(scrollY / docH, 1);
+  depthFill.style.height = (progress * 100) + '%';
+
+  document.querySelectorAll('.layer-inner').forEach(el => {
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.82) el.classList.add('visible');
+  });
+
+  const btTitle = document.getElementById('bottom-title');
+  const btSub = document.getElementById('bottom-sub');
+  if (btTitle) {
+    const r = btTitle.getBoundingClientRect();
+    if (r.top < window.innerHeight * 0.85) {
+      btTitle.classList.add('visible');
+      btSub.classList.add('visible');
+    }
+  }
+}
+
+// ─── CLICK RIPPLE ───
+window.addEventListener('click', e => {
+  const rip = document.createElement('div');
+  rip.className = 'ripple';
+  rip.style.left = e.clientX + 'px';
+  rip.style.top = e.clientY + 'px';
+  const s = 100 + Math.random() * 120;
+  rip.style.width = s + 'px'; rip.style.height = s + 'px';
+  document.body.appendChild(rip);
+  setTimeout(() => rip.remove(), 700);
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'F11' || e.code === 'KeyF') {
+    document.documentElement.requestFullscreen?.();
+  }
+});
+
+window.addEventListener('resize', () => { resize(); resizeWater(); });
+window.addEventListener('scroll', onScroll, { passive: true });
+
+resize();
+resizeWater();
+bgLoop();
+drawWater();
+autoScrollLoop();
+setTimeout(onScroll, 100);
+</script>
+</body>
+</html>
